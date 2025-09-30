@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.InputSystem.Controls;
+
+
 
 public class Player : MonoBehaviour
 {
-    // # 1. �÷��̾� �̵�
  
     public bool isTouchTop;
     public bool isTouchBottom;

@@ -21,10 +21,12 @@ public class Background : MonoBehaviour
     [SerializeField] private int endIndex = 2;
 
     private float viewHeight;
-    private const float SPRITE_HEIGHT = 10f;
+    //private const float SPRITE_HEIGHT = 10f;
+    private float spriteHeight;
 
     private void Awake()
     {
+        spriteHeight = sprites[0].GetComponent<SpriteRenderer>().bounds.size.y;
         viewHeight = Camera.main.orthographicSize * 2;
         ValidateSettings();
     }
@@ -54,7 +56,7 @@ public class Background : MonoBehaviour
         {
             // 스프라이트 재사용 - 맨 위로 이동
             Vector3 backSpritePos = sprites[startIndex].localPosition;
-            sprites[endIndex].localPosition = backSpritePos + Vector3.up * SPRITE_HEIGHT;
+            sprites[endIndex].localPosition = backSpritePos + Vector3.up;
 
             // 인덱스 업데이트 (최적화된 순환 로직)
             int tempStartIndex = startIndex;
