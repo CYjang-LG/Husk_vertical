@@ -1,90 +1,233 @@
+using System.Collections;
 using UnityEngine;
 
-/// <summary>
-/// 배경 스크롤링을 관리하는 스크립트
-/// 무한 스크롤을 위해 3개의 배경 스프라이트를 재사용합니다
-/// </summary>
-public class Background : MonoBehaviour
+public class Enemy : MonoBehaviour
 {
-    [Header("Scrolling Settings")]
-    [Tooltip("배경 스크롤 속도")]
-    [SerializeField] private float speed = 1f;
-    
-    [Header("Sprite References")]
-    [Tooltip("배경 스프라이트 배열 (3개 권장)")]
-    [SerializeField] private Transform[] sprites;
-    
-    [Tooltip("첫 번째 스프라이트 인덱스")]
-    [SerializeField] private int startIndex = 0;
-    
-    [Tooltip("마지막 스프라이트 인덱스")]
-    [SerializeField] private int endIndex = 2;
+    public string enemyName;
+    public int enemyScore;
+    public float speed;
+    public int health;
+    public Sprite[] sprites;
 
-    private float viewHeight;
-    private const float SPRITE_HEIGHT = 10f;
+    public float maxShotDelay;
+    public float curShotDelay;
 
-    private void Awake()
+    public GameObject bulletObjA;
+    public GameObject bulletObjB;
+    public GameObject itemCoin;
+    public GameObject itemPower;
+    public GameObject itemBoom;
+    public GameObject player;
+    public ObjectManager objectManager;
+    public GameManager gameManager;
+
+    SpriteRenderer spriteRenderer;
+    Animator anim;
+
+    void Awake()
     {
-        viewHeight = Camera.main.orthographicSize * 2;
-        ValidateSettings();
+        spriteRenderer = GetComponent<SpriteRenderer>();
+
+        if (enemyName == "B")
+            anim = GetComponent<Animator>();
     }
 
-    private void Update()
+    void OnEnable()
     {
-        Move();
-        Scrolling();
-    }
-
-    /// <summary>
-    /// 배경을 아래로 이동시킵니다
-    /// </summary>
-    private void Move()
-    {
-        // 최적화: Vector3.down 캐싱 및 직접 계산
-        transform.position += Vector3.down * (speed * Time.deltaTime);
-    }
-
-    /// <summary>
-    /// 화면 밖으로 나간 스프라이트를 위로 재배치합니다
-    /// </summary>
-    private void Scrolling()
-    {
-        // 화면 밖으로 나간 스프라이트 체크
-        if (sprites[endIndex].position.y < -viewHeight)
+        switch (enemyName)
         {
-            // 스프라이트 재사용 - 맨 위로 이동
-            Vector3 backSpritePos = sprites[startIndex].localPosition;
-            sprites[endIndex].localPosition = backSpritePos + Vector3.up * SPRITE_HEIGHT;
-
-            // 인덱스 업데이트 (최적화된 순환 로직)
-            int tempStartIndex = startIndex;
-            startIndex = endIndex;
-            endIndex = (tempStartIndex - 1 + sprites.Length) % sprites.Length;
+            case "B":
+                health = 3000;
+                Invoke("Stop", 2);
+                break;
+            case "L":
+                health = 10;
+                break;
+            case "M":
+                health = 3;
+                break;
+            case "S":
+                health = 1;
+                break;
         }
     }
 
-    /// <summary>
-    /// 설정값 유효성 검사
-    /// </summary>
-    private void ValidateSettings()
+    void Stop()
     {
-        if (sprites == null || sprites.Length == 0)
-        {
-            Debug.LogError("Background: Sprites array is empty!");
-            enabled = false;
+        if (!gameObject.activeSelf)
             return;
+
+        Rigidbody2D rigid = GetComponent<Rigidbody2D>();
+        rigid.linearVelocity = Vector2.zero;
+
+        Invoke("Think", 2);
+    }
+
+    void Think()
+    {
+        if (!gameObject.activeSelf)
+            return;
+
+        StartCoroutine(EnemyRoutine());
+    }
+
+    IEnumerator EnemyRoutine()
+    {
+        while (true)
+        {
+            int action = Random.Range(0, 5);
+
+            if (action < 2) // Move
+            {
+                Vector2 targetPos = new Vector2(Random.Range(-3f, 3f), Random.Range(-2f, 2f));
+                Rigidbody2D rigid = GetComponent<Rigidbody2D>();
+                Vector2 direction = (targetPos - (Vector2)transform.position).normalized;
+                rigid.linearVelocity = direction * 2f;
+
+                yield return new WaitForSeconds(3f);
+                rigid.linearVelocity = Vector2.zero;
+            }
+            else if (action < 4) // Fire
+            {
+                Fire();
+                yield return new WaitForSeconds(0.5f);
+            }
+            else // Wait
+            {
+                yield return new WaitForSeconds(1f);
+            }
+        }
+    }
+
+    void Update()
+    {
+        if (enemyName == "B")
+            return;
+
+        Fire();
+        Reload();
+    }
+
+    void Fire()
+    {
+        if (curShotDelay < maxShotDelay)
+            return;
+
+        if (enemyName == "S")
+        {
+            GameObject bullet = objectManager.MakeObj("BulletEnemyA");
+            bullet.transform.position = transform.position;
+
+            Rigidbody2D rigid = bullet.GetComponent<Rigidbody2D>();
+            Vector3 dirVec = player.transform.position - transform.position;
+            rigid.AddForce(dirVec.normalized * 3, ForceMode2D.Impulse);
+        }
+        else if (enemyName == "L")
+        {
+            GameObject bulletR = objectManager.MakeObj("BulletEnemyB");
+            bulletR.transform.position = transform.position + Vector3.right * 0.3f;
+
+            GameObject bulletL = objectManager.MakeObj("BulletEnemyB");
+            bulletL.transform.position = transform.position + Vector3.left * 0.3f;
+
+            Rigidbody2D rigidR = bulletR.GetComponent<Rigidbody2D>();
+            Rigidbody2D rigidL = bulletL.GetComponent<Rigidbody2D>();
+
+            Vector3 dirVecR = player.transform.position - (transform.position + Vector3.right * 0.3f);
+            Vector3 dirVecL = player.transform.position - (transform.position + Vector3.left * 0.3f);
+
+            rigidR.AddForce(dirVecR.normalized * 4, ForceMode2D.Impulse);
+            rigidL.AddForce(dirVecL.normalized * 4, ForceMode2D.Impulse);
+        }
+        else if (enemyName == "B")
+        {
+            GameObject bullet = objectManager.MakeObj("BulletBossA");
+            bullet.transform.position = transform.position;
+
+            Rigidbody2D rigid = bullet.GetComponent<Rigidbody2D>();
+            Vector3 dirVec = player.transform.position - transform.position;
+            rigid.AddForce(dirVec.normalized * 5, ForceMode2D.Impulse);
         }
 
-        if (startIndex < 0 || startIndex >= sprites.Length)
+        curShotDelay = 0;
+    }
+
+    void Reload()
+    {
+        curShotDelay += Time.deltaTime;
+    }
+
+    public void OnHit(int dmg)
+    {
+        if (health <= 0)
+            return;
+
+        health -= dmg;
+
+        if (enemyName == "B")
         {
-            Debug.LogError($"Background: Invalid startIndex {startIndex}");
-            enabled = false;
+            anim.SetTrigger("OnHit");
+        }
+        else
+        {
+            spriteRenderer.sprite = sprites[1];
+            Invoke("ReturnSprite", 0.1f);
         }
 
-        if (endIndex < 0 || endIndex >= sprites.Length)
+        if (health <= 0)
         {
-            Debug.LogError($"Background: Invalid endIndex {endIndex}");
-            enabled = false;
+            Player playerLogic = player.GetComponent<Player>();
+            playerLogic.score += enemyScore;
+
+            // Randomly drop items
+            int ran = enemyName == "B" ? 0 : Random.Range(0, 10);
+            if (ran < 3)
+            {
+                Debug.Log("No Item");
+            }
+            else if (ran < 6)
+            {
+                GameObject itemCoin = objectManager.MakeObj("ItemCoin");
+                itemCoin.transform.position = transform.position;
+            }
+            else if (ran < 8)
+            {
+                GameObject itemPower = objectManager.MakeObj("ItemPower");
+                itemPower.transform.position = transform.position;
+            }
+            else if (ran < 10)
+            {
+                GameObject itemBoom = objectManager.MakeObj("ItemBoom");
+                itemBoom.transform.position = transform.position;
+            }
+
+            gameObject.SetActive(false);
+            transform.rotation = Quaternion.identity;
+            gameManager.CallExplosion(transform.position, enemyName);
+
+            if (enemyName == "B")
+                gameManager.StageEnd();
+        }
+    }
+
+    void ReturnSprite()
+    {
+        spriteRenderer.sprite = sprites[0];
+    }
+
+    void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.gameObject.tag == "BorderBullet" && enemyName != "B")
+        {
+            gameObject.SetActive(false);
+            transform.rotation = Quaternion.identity;
+        }
+        else if (collision.gameObject.tag == "PlayerBullet")
+        {
+            Bullet bullet = collision.gameObject.GetComponent<Bullet>();
+            OnHit(bullet.GetDamage());  // dmg ��� GetDamage() ���
+
+            collision.gameObject.SetActive(false);
         }
     }
 }

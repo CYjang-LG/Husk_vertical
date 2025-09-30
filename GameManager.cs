@@ -159,16 +159,16 @@ public class GameManager : MonoBehaviour
         if (enemyPoint == 5 || enemyPoint == 6) // #.Right Spawn
         {
             enemy.transform.Rotate(Vector3.back * 45);
-            rigid.velocity = new Vector2(enemyLogic.speed * (-1), -1);
+            rigid.linearVelocity = new Vector2(enemyLogic.speed * (-1), -1);
         }
         else if (enemyPoint == 7 || enemyPoint == 8)    // #.Left Spawn
         {
             enemy.transform.Rotate(Vector3.forward * 45);
-            rigid.velocity = new Vector2(enemyLogic.speed, -1);
+            rigid.linearVelocity = new Vector2(enemyLogic.speed, -1);
         }
         else    //#. Frong Spawn
         {
-            rigid.velocity = new Vector2(0, enemyLogic.speed * (-1));
+            rigid.linearVelocity = new Vector2(0, enemyLogic.speed * (-1));
         }
 
 
@@ -216,7 +216,7 @@ public class GameManager : MonoBehaviour
     }
     public void RespawnPlayer()
     {
-        Invoke("RespawnPlayerExe", 2f);    /
+        Invoke("RespawnPlayerExe", 2f);
     }
 
     void RespawnPlayerExe()
