@@ -225,7 +225,7 @@ public class Enemy : MonoBehaviour
         else if (collision.gameObject.tag == "PlayerBullet")
         {
             Bullet bullet = collision.gameObject.GetComponent<Bullet>();
-            OnHit(bullet.GetDamage());  // dmg ´ë½Å GetDamage() »ç¿ë
+            OnHit(bullet.GetDamage());  // dmg Â´Ã«Â½Ã… GetDamage() Â»Ã§Â¿Ã«
 
             collision.gameObject.SetActive(false);
         }
