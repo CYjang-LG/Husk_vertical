@@ -1,33 +1,47 @@
 using UnityEngine;
 
 /// <summary>
-/// 배경 스크롤링을 관리하는 스크립트
-/// 무한 스크롤을 위해 3개의 배경 스프라이트를 재사용합니다
+/// 배경 무한 스크롤링 관리
 /// </summary>
 public class Background : MonoBehaviour
 {
     [Header("Scrolling Settings")]
     [Tooltip("배경 스크롤 속도")]
     [SerializeField] private float speed = 1f;
-    
+
     [Header("Sprite References")]
     [Tooltip("배경 스프라이트 배열 (3개 권장)")]
     [SerializeField] private Transform[] sprites;
-    
+
     [Tooltip("첫 번째 스프라이트 인덱스")]
     [SerializeField] private int startIndex = 0;
-    
+
     [Tooltip("마지막 스프라이트 인덱스")]
     [SerializeField] private int endIndex = 2;
 
     private float viewHeight;
-    //private const float SPRITE_HEIGHT = 10f;
     private float spriteHeight;
 
     private void Awake()
     {
-        spriteHeight = sprites[0].GetComponent<SpriteRenderer>().bounds.size.y;
         viewHeight = Camera.main.orthographicSize * 2;
+
+        // 스프라이트 높이 자동 계산
+        if (sprites != null && sprites.Length > 0 && sprites[0] != null)
+        {
+            SpriteRenderer sr = sprites[0].GetComponent<SpriteRenderer>();
+            if (sr != null)
+            {
+                spriteHeight = sr.bounds.size.y;
+                Debug.Log($"Background: Sprite height = {spriteHeight}");
+            }
+            else
+            {
+                spriteHeight = 10f; // 기본값
+                Debug.LogWarning("Background: No SpriteRenderer found, using default height 10");
+            }
+        }
+
         ValidateSettings();
     }
 
@@ -38,30 +52,31 @@ public class Background : MonoBehaviour
     }
 
     /// <summary>
-    /// 배경을 아래로 이동시킵니다
+    /// 배경을 아래로 이동
     /// </summary>
     private void Move()
     {
-        // 최적화: Vector3.down 캐싱 및 직접 계산
         transform.position += Vector3.down * (speed * Time.deltaTime);
     }
 
     /// <summary>
-    /// 화면 밖으로 나간 스프라이트를 위로 재배치합니다
+    /// 화면 밖으로 나간 스프라이트를 위로 재배치
     /// </summary>
     private void Scrolling()
     {
-        // 화면 밖으로 나간 스프라이트 체크
+        // 화면 아래로 완전히 벗어났는지 체크
         if (sprites[endIndex].position.y < -viewHeight)
         {
-            // 스프라이트 재사용 - 맨 위로 이동
+            // ✅ 수정: spriteHeight를 사용하여 정확한 위치에 재배치
             Vector3 backSpritePos = sprites[startIndex].localPosition;
-            sprites[endIndex].localPosition = backSpritePos + Vector3.up;
+            sprites[endIndex].localPosition = backSpritePos + Vector3.up * spriteHeight;
 
-            // 인덱스 업데이트 (최적화된 순환 로직)
+            // 인덱스 순환
             int tempStartIndex = startIndex;
             startIndex = endIndex;
             endIndex = (tempStartIndex - 1 + sprites.Length) % sprites.Length;
+
+            Debug.Log($"Background scrolled: new start={startIndex}, end={endIndex}");
         }
     }
 
@@ -87,6 +102,16 @@ public class Background : MonoBehaviour
         {
             Debug.LogError($"Background: Invalid endIndex {endIndex}");
             enabled = false;
+        }
+
+        // 스프라이트가 null인지 체크
+        for (int i = 0; i < sprites.Length; i++)
+        {
+            if (sprites[i] == null)
+            {
+                Debug.LogError($"Background: Sprite at index {i} is null!");
+                enabled = false;
+            }
         }
     }
 }

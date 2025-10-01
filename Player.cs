@@ -1,54 +1,58 @@
 using System.Collections;
-using System.Collections.Generic;
-using System.Security.Cryptography;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.InputSystem.Controls;
-
-
 
 public class Player : MonoBehaviour
 {
- 
+    [Header("Touch Boundaries")]
     public bool isTouchTop;
     public bool isTouchBottom;
     public bool isTouchRight;
     public bool isTouchLeft;
 
+    [Header("Player Stats")]
     public int life;
     public int score;
-
     public float speed;
+
+    [Header("Power Settings")]
     public int maxPower;
     public int power;
+
+    [Header("Boom Settings")]
     public int maxBoom;
     public int boom;
+
+    [Header("Shooting Settings")]
     public float maxShotDelay;
     public float curShotDelay;
 
+    [Header("References")]
     public GameObject bulletObjA;
     public GameObject bulletObjB;
     public GameObject boomEffect;
-
     public GameManager gameManager;
     public ObjectManager objectManager;
-    public bool isHit;
-    public bool isBoomTime;
-
     public GameObject[] followers;
-    public bool isRespawnTime;
 
-    public bool[] joyControl;   // ��� ��������
-    public bool isControl;      // ���� ��ư�� ��������
+    [Header("Control States")]
+    public bool[] joyControl;   // 조이스틱 방향
+    public bool isControl;      // 조이스틱 눌림 상태
     public bool isButtonA;
     public bool isButtonB;
 
+    [Header("Status")]
+    public bool isHit;
+    public bool isBoomTime;
+    public bool isRespawnTime;
+
     Animator anim;
     SpriteRenderer spriteRenderer;
+
     void Awake()
     {
-        anim = GetComponent<Animator>();   
-        spriteRenderer = GetComponent<SpriteRenderer>();    
+        anim = GetComponent<Animator>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
+        joyControl = new bool[9]; // 초기화
     }
 
     void OnEnable()
@@ -60,24 +64,22 @@ public class Player : MonoBehaviour
     void Unbeatable()
     {
         isRespawnTime = !isRespawnTime;
-        if(isRespawnTime)   //#.���� Ÿ�� ����Ʈ (����)
+        if (isRespawnTime)
         {
-            isRespawnTime = true;
             spriteRenderer.color = new Color(1, 1, 1, 0.5f);
-
-            for(int i=0; i<followers.Length; i++)
+            foreach (GameObject follower in followers)
             {
-                followers[i].GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 0.5f);
+                if (follower.activeSelf)
+                    follower.GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 0.5f);
             }
-        }   
-        else   //#.���� Ÿ�� ���� (�������)
+        }
+        else
         {
-            isRespawnTime = false;
             spriteRenderer.color = new Color(1, 1, 1, 1);
-
-            for (int i = 0; i < followers.Length; i++)
+            foreach (GameObject follower in followers)
             {
-                followers[i].GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
+                if (follower.activeSelf)
+                    follower.GetComponent<SpriteRenderer>().color = new Color(1, 1, 1, 1);
             }
         }
     }
@@ -88,12 +90,12 @@ public class Player : MonoBehaviour
         Fire();
         Boom();
         Reload();
-
     }
 
+    // 조이스틱 패널 입력 (0~8)
     public void JoyPanel(int type)
     {
-        for(int i=0; i<9; i++)
+        for (int i = 0; i < 9; i++)
         {
             joyControl[i] = i == type;
         }
@@ -109,37 +111,55 @@ public class Player : MonoBehaviour
         isControl = false;
     }
 
-   
     void Move()
     {
-        //#.Keyboard Control Value
-        float h = Input.GetAxisRaw("Horizontal");
-        float v = Input.GetAxisRaw("Vertical");
+        float h = 0f;
+        float v = 0f;
 
-        //#.Joy Control Value
-        if (joyControl[0]) { h = -1; v = 1; }
-        if (joyControl[1]) { h = 0; v = 1; }
-        if (joyControl[2]) { h = 1; v = 1; }
-        if (joyControl[3]) { h = -1; v = 0; }
-        if (joyControl[4]) { h = 0; v = 0; }
-        if (joyControl[5]) { h = 1; v = 0; }
-        if (joyControl[6]) { h = -1; v = -1; }
-        if (joyControl[7]) { h = 0; v = -1; }
-        if (joyControl[8]) { h = 1; v = -1; }
+        // ✅ PC 키보드 입력 (항상 활성화)
+        float keyboardH = Input.GetAxisRaw("Horizontal");
+        float keyboardV = Input.GetAxisRaw("Vertical");
 
+        // 조이스틱 입력
+        float joyH = 0f;
+        float joyV = 0f;
 
-        if ((isTouchRight && h == 1) || (isTouchLeft && h == -1) || !isControl)
+        if (isControl) // 조이스틱이 눌렸을 때만
+        {
+            if (joyControl[0]) { joyH = -1; joyV = 1; }
+            if (joyControl[1]) { joyH = 0; joyV = 1; }
+            if (joyControl[2]) { joyH = 1; joyV = 1; }
+            if (joyControl[3]) { joyH = -1; joyV = 0; }
+            if (joyControl[4]) { joyH = 0; joyV = 0; }
+            if (joyControl[5]) { joyH = 1; joyV = 0; }
+            if (joyControl[6]) { joyH = -1; joyV = -1; }
+            if (joyControl[7]) { joyH = 0; joyV = -1; }
+            if (joyControl[8]) { joyH = 1; joyV = -1; }
+
+            h = joyH;
+            v = joyV;
+        }
+        else
+        {
+            // 조이스틱을 안 쓸 때는 키보드 입력 사용
+            h = keyboardH;
+            v = keyboardV;
+        }
+
+        // 경계 체크
+        if ((isTouchRight && h > 0) || (isTouchLeft && h < 0))
             h = 0;
 
-        if ((isTouchTop && v == 1) || (isTouchBottom && v == -1) || !isControl)
+        if ((isTouchTop && v > 0) || (isTouchBottom && v < 0))
             v = 0;
+
+        // 이동 처리
         Vector3 curPos = transform.position;
         Vector3 nextPos = new Vector3(h, v, 0) * speed * Time.deltaTime;
-
         transform.position = curPos + nextPos;
 
-        if (Input.GetButtonDown("Horizontal") ||
-            Input.GetButtonUp("Horizontal"))
+        // 애니메이션
+        if (Input.GetButtonDown("Horizontal") || Input.GetButtonUp("Horizontal"))
         {
             anim.SetInteger("Input", (int)h);
         }
@@ -159,71 +179,73 @@ public class Player : MonoBehaviour
     {
         isButtonB = true;
     }
+
+    public void ButtonBUp()
+    {
+        isButtonB = false;
+    }
+
     void Fire()
     {
-        /*  if (!Input.GetButton("Fire1"))
-              return;*/
-
-        if (!isButtonA)
+        // ✅ PC에서는 스페이스바, 모바일에서는 버튼 A
+        if (!isButtonA && !Input.GetButton("Fire1"))
             return;
 
         if (curShotDelay < maxShotDelay)
             return;
 
-
         switch (power)
         {
             case 1:
-                // Power One
                 GameObject bullet = objectManager.MakeObj("BulletPlayerA");
-                bullet.transform.position = transform.position;
-
-                Rigidbody2D rigid = bullet.GetComponent<Rigidbody2D>();
-                rigid.AddForce(Vector2.up * 10, ForceMode2D.Impulse);
-
+                if (bullet != null)
+                {
+                    bullet.transform.position = transform.position;
+                    Rigidbody2D rigid = bullet.GetComponent<Rigidbody2D>();
+                    rigid.linearVelocity = Vector2.up * 10; // AddForce 대신 velocity 사용
+                }
                 break;
 
             case 2:
                 GameObject bulletR = objectManager.MakeObj("BulletPlayerA");
-                bulletR.transform.position = transform.position + Vector3.right * 0.1f;
-                  
                 GameObject bulletL = objectManager.MakeObj("BulletPlayerA");
-                bulletL.transform.position = transform.position + Vector3.left * 0.1f;
 
-                Rigidbody2D rigidR = bulletR.GetComponent<Rigidbody2D>();
-                Rigidbody2D rigidL = bulletL.GetComponent<Rigidbody2D>();
-                rigidR.AddForce(Vector2.up * 10, ForceMode2D.Impulse);
-                rigidL.AddForce(Vector2.up * 10, ForceMode2D.Impulse);
+                if (bulletR != null)
+                {
+                    bulletR.transform.position = transform.position + Vector3.right * 0.1f;
+                    bulletR.GetComponent<Rigidbody2D>().linearVelocity = Vector2.up * 10;
+                }
+                if (bulletL != null)
+                {
+                    bulletL.transform.position = transform.position + Vector3.left * 0.1f;
+                    bulletL.GetComponent<Rigidbody2D>().linearVelocity = Vector2.up * 10;
+                }
                 break;
-            /*case 3:   // �̷��Ե� �����ϰ�
-            case 4:
-            case 5:
-            case 6:*/
+
             default:
                 GameObject bulletRR = objectManager.MakeObj("BulletPlayerA");
-                bulletRR.transform.position = transform.position + Vector3.right * 0.35f;
-
                 GameObject bulletCC = objectManager.MakeObj("BulletPlayerB");
-                bulletCC.transform.position = transform.position;
-
-                    
                 GameObject bulletLL = objectManager.MakeObj("BulletPlayerA");
-                bulletLL.transform.position = transform.position + Vector3.left * 0.35f;
 
-
-                Rigidbody2D rigidRR = bulletRR.GetComponent<Rigidbody2D>();
-                Rigidbody2D rigidCC = bulletCC.GetComponent<Rigidbody2D>();
-                Rigidbody2D rigidLL = bulletLL.GetComponent<Rigidbody2D>();
-                rigidRR.AddForce(Vector2.up * 10, ForceMode2D.Impulse);
-                rigidCC.AddForce(Vector2.up * 10, ForceMode2D.Impulse);
-                rigidLL.AddForce(Vector2.up * 10, ForceMode2D.Impulse);
-
+                if (bulletRR != null)
+                {
+                    bulletRR.transform.position = transform.position + Vector3.right * 0.35f;
+                    bulletRR.GetComponent<Rigidbody2D>().linearVelocity = Vector2.up * 10;
+                }
+                if (bulletCC != null)
+                {
+                    bulletCC.transform.position = transform.position;
+                    bulletCC.GetComponent<Rigidbody2D>().linearVelocity = Vector2.up * 10;
+                }
+                if (bulletLL != null)
+                {
+                    bulletLL.transform.position = transform.position + Vector3.left * 0.35f;
+                    bulletLL.GetComponent<Rigidbody2D>().linearVelocity = Vector2.up * 10;
+                }
                 break;
         }
 
-       
-
-        curShotDelay = 0;       // �Ѿ��� �� �������� ������ ���� 0���� �ʱ�ȭ
+        curShotDelay = 0;
     }
 
     void Reload()
@@ -233,10 +255,8 @@ public class Player : MonoBehaviour
 
     void Boom()
     {
-        /*    if (!Input.GetButton("Fire2"))
-                return;*/
-
-        if (!isButtonB)
+        // ✅ PC에서는 Shift 키, 모바일에서는 버튼 B
+        if (!isButtonB && !Input.GetButtonDown("Fire2"))
             return;
 
         if (isBoomTime)
@@ -249,91 +269,75 @@ public class Player : MonoBehaviour
         isBoomTime = true;
         gameManager.UpdateBoomIcon(boom);
 
-        //#1.Effect visible
         boomEffect.SetActive(true);
         Invoke("OffBoomEffect", 4f);
-        //#2.Remove Enemy
+
+        // 모든 적 제거
         GameObject[] enemiesL = objectManager.GetPool("EnemyL");
         GameObject[] enemiesM = objectManager.GetPool("EnemyM");
         GameObject[] enemiesS = objectManager.GetPool("EnemyS");
 
-        for (int i = 0; i < enemiesL.Length; i++)
+        foreach (GameObject enemy in enemiesL)
         {
-            if (enemiesL[i].activeSelf)
-            {
-                Enemy enemyLogic = enemiesL[i].GetComponent<Enemy>();
-                enemyLogic.OnHit(1000);
-            }
+            if (enemy.activeSelf)
+                enemy.GetComponent<Enemy>().OnHit(1000);
         }
-        for (int i = 0; i < enemiesM.Length; i++)
+        foreach (GameObject enemy in enemiesM)
         {
-            if (enemiesM[i].activeSelf)
-            {
-                Enemy enemyLogic = enemiesM[i].GetComponent<Enemy>();
-                enemyLogic.OnHit(1000);
-            }
+            if (enemy.activeSelf)
+                enemy.GetComponent<Enemy>().OnHit(1000);
         }
-        for (int i = 0; i < enemiesS.Length; i++)
+        foreach (GameObject enemy in enemiesS)
         {
-            if (enemiesS[i].activeSelf)
-            {
-                Enemy enemyLogic = enemiesS[i].GetComponent<Enemy>();
-                enemyLogic.OnHit(1000);
-            }
+            if (enemy.activeSelf)
+                enemy.GetComponent<Enemy>().OnHit(1000);
         }
 
-        //#3.Remove Enemy Bullet
+        // 모든 적 총알 제거
         GameObject[] bulletsA = objectManager.GetPool("BulletEnemyA");
         GameObject[] bulletsB = objectManager.GetPool("BulletEnemyB");
-        for(int i = 0; i < bulletsA.Length;i++)
+
+        foreach (GameObject bullet in bulletsA)
         {
-            if (bulletsA[i].activeSelf)
-            {
-                bulletsA[i].SetActive(false);
-            }
+            if (bullet.activeSelf)
+                bullet.SetActive(false);
         }
-        for (int i = 0; i < bulletsB.Length; i++)
+        foreach (GameObject bullet in bulletsB)
         {
-            if (bulletsB[i].activeSelf)
-            {
-                bulletsB[i].SetActive(false);
-            }
+            if (bullet.activeSelf)
+                bullet.SetActive(false);
         }
+    }
 
-
-
+    void OffBoomEffect()
+    {
+        boomEffect.SetActive(false);
+        isBoomTime = false;
     }
 
     void OnTriggerEnter2D(Collider2D collision)
     {
-        if(collision.gameObject.tag == "Border")
+        if (collision.gameObject.CompareTag("Border"))
         {
-            switch (collision.gameObject.name) 
+            switch (collision.gameObject.name)
             {
                 case "Top":
                     isTouchTop = true;
                     break;
-
                 case "Bottom":
                     isTouchBottom = true;
                     break;
-
                 case "Right":
                     isTouchRight = true;
                     break;
-
                 case "Left":
                     isTouchLeft = true;
                     break;
-
             }
         }
-        else if (collision.gameObject.tag == "Enemy" || collision.gameObject.tag == "EnemyBullet")
+        else if (collision.gameObject.CompareTag("Enemy") || collision.gameObject.CompareTag("EnemyBullet"))
         {
-            if (isRespawnTime)
-                return;
-
-            if (isHit)
+            if (isRespawnTime || isHit)
                 return;
 
             isHit = true;
@@ -341,7 +345,7 @@ public class Player : MonoBehaviour
             gameManager.UpdateLifeIcon(life);
             gameManager.CallExplosion(transform.position, "P");
 
-            if(life == 0)
+            if (life == 0)
             {
                 gameManager.GameOver();
             }
@@ -349,23 +353,22 @@ public class Player : MonoBehaviour
             {
                 gameManager.RespawnPlayer();
             }
-            
+
             gameObject.SetActive(false);
 
-            if(collision.gameObject.tag == "Enemy") // �ε��ƴµ� ������ ���� �÷��̾ �ı�
+            if (collision.gameObject.CompareTag("Enemy"))
             {
-                Enemy bossCheck = collision.gameObject.GetComponent<Enemy>();
-                if (bossCheck.enemyName == "B")
+                Enemy enemy = collision.gameObject.GetComponent<Enemy>();
+                if (enemy != null && enemy.enemyName == "B")
                     return;
             }
 
             collision.gameObject.SetActive(false);
-
         }
-        else if(collision.gameObject.tag == "Item")
+        else if (collision.gameObject.CompareTag("Item"))
         {
             Item item = collision.gameObject.GetComponent<Item>();
-            switch(item.type)
+            switch (item.type)
             {
                 case "Coin":
                     score += 1000;
@@ -387,7 +390,6 @@ public class Player : MonoBehaviour
                         boom++;
                         gameManager.UpdateBoomIcon(boom);
                     }
-                      
                     break;
             }
             collision.gameObject.SetActive(false);
@@ -398,41 +400,31 @@ public class Player : MonoBehaviour
     {
         if (power == 4)
             followers[0].SetActive(true);
-        else if (power ==5)
+        else if (power == 5)
             followers[1].SetActive(true);
         else if (power == 6)
             followers[2].SetActive(true);
     }
-    void OffBoomEffect()
-    {
-        boomEffect.SetActive(false);
-        isBoomTime = false;
-    }
 
     void OnTriggerExit2D(Collider2D collision)
     {
-        if (collision.gameObject.tag == "Border")
+        if (collision.gameObject.CompareTag("Border"))
         {
             switch (collision.gameObject.name)
             {
                 case "Top":
                     isTouchTop = false;
                     break;
-
                 case "Bottom":
                     isTouchBottom = false;
                     break;
-
                 case "Right":
                     isTouchRight = false;
                     break;
-
                 case "Left":
                     isTouchLeft = false;
                     break;
-
             }
         }
     }
-
 }
